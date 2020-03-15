@@ -14,6 +14,7 @@ let phonebook = [
 ];
 
 //middleware
+app.use(express.static("build"));
 //cors
 app.use(cors());
 //morgan
