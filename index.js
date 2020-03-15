@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const bodyParser = require("body-parser");
 const morgan = require("morgan");
+const cors = require("cors");
 
 //notes array
 let phonebook = [
@@ -13,14 +14,14 @@ let phonebook = [
 ];
 
 //middleware
-morgan.token("json", req => {
-  return JSON.stringify(req.body);
-});
-app.use(
-  morgan(":method :url :status :res[content-length] - :response-time ms :json")
-);
+//cors
+app.use(cors());
+//morgan
+app.use(morgan("tiny"));
+//bodyparser
 app.use(bodyParser.json());
 
+//GET /info
 app.get("/info", (req, res) => {
   let noOfEntries = phonebook.length;
   let today = new Date();
@@ -29,10 +30,12 @@ app.get("/info", (req, res) => {
   );
 });
 
+//GET /api/persons
 app.get("/api/persons", (req, res) => {
   res.json(phonebook);
 });
 
+//GET /api/persons/:id
 app.get("/api/persons/:id", (req, res) => {
   const id = Number(req.params.id);
   const entry = phonebook.find(entry => entry.id === id);
@@ -44,6 +47,7 @@ const generateId = (min, max) => {
   return Math.floor(Math.random() * (max - min) + min);
 };
 
+//POST /api/persons
 app.post("/api/persons", (req, res) => {
   const entry = req.body;
   if (!entry.name || !entry.number) {
@@ -59,9 +63,21 @@ app.post("/api/persons", (req, res) => {
   entry.id = generateId(10, 100);
   //add to array
   phonebook.push(entry);
-  res.json(phonebook);
+  res.json(entry);
 });
 
+//ERROR
+//PUT /api/persons
+app.put("/api/persons/:id", (req, res) => {
+  const entry = req.body;
+  const findPerson = phonebook.find(person => person.name === entry.name);
+  if (findPerson.number === entry.number)
+    return res.status(404).json({ error: "same number, cant update" });
+  findPerson.number = entry.number;
+  res.json(findPerson);
+});
+
+//DELETE /api/persons/:id
 app.delete("/api/persons/:id", (req, res) => {
   const id = Number(req.params.id);
   const entry = phonebook.find(entry => entry.id === id);
@@ -81,7 +97,7 @@ const unknownEndPoint = (req, res) => {
 
 app.use(unknownEndPoint);
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log("server is running");
 });
