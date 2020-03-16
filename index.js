@@ -6,14 +6,7 @@ const morgan = require("morgan");
 const cors = require("cors");
 const Phonebook = require("./models/phonebook");
 
-//notes array
-let phonebook = [
-  { name: "Yash Patel", number: "9106377186", id: 1 },
-  { name: "Neel Patel", number: "9148324832", id: 2 },
-  { name: "Varsha Patel", number: "4838548483", id: 3 },
-  { name: "Harshad Patel", number: "485435222", id: 4 },
-  { name: "Mohan", number: "914843483748", id: 5 }
-];
+mongoose.set("useFindAndModify", false);
 
 //middleware
 app.use(express.static("build"));
@@ -74,15 +67,23 @@ app.post("/api/persons", (req, res) => {
   });
 });
 
-//ERROR
 //PUT /api/persons
-app.put("/api/persons/:id", (req, res) => {
-  const entry = req.body;
-  const findPerson = phonebook.find(person => person.name === entry.name);
-  if (findPerson.number === entry.number)
-    return res.status(404).json({ error: "same number, cant update" });
-  findPerson.number = entry.number;
-  res.json(findPerson);
+app.put("/api/persons/:id", (req, res, next) => {
+  const body = req.body;
+  Phonebook.find({ name: body.name }).then(result => {
+    if (result.number === body.number)
+      return res.status(404).json({ error: "same number, cant update" });
+    //otherwise update
+    const entry = {
+      name: body.name,
+      number: body.number
+    };
+    Phonebook.findByIdAndUpdate(req.params.id, entry, {
+      new: true
+    })
+      .then(updatedEntry => res.json(updatedEntry.toJSON()))
+      .catch(error => next(error));
+  });
 });
 
 //DELETE /api/persons/:id
@@ -90,14 +91,6 @@ app.delete("/api/persons/:id", (req, res, next) => {
   Phonebook.findByIdAndRemove(req.params.id)
     .then(result => res.status(204).json(result.toJSON()))
     .catch(error => next(error));
-  // const entry = phonebook.find(entry => entry.id === id);
-  // if (entry) {
-  //   const index = phonebook.indexOf(entry);
-  //   phonebook.splice(index, 1);
-  //   res.json(phonebook);
-  // } else {
-  //   res.status(404).end();
-  // }
 });
 
 //unknown endpoints
