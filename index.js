@@ -6,8 +6,6 @@ const morgan = require("morgan");
 const cors = require("cors");
 const Phonebook = require("./models/phonebook");
 
-mongoose.set("useFindAndModify", false);
-
 //middleware
 app.use(express.static("build"));
 //cors
@@ -18,22 +16,26 @@ app.use(morgan("tiny"));
 app.use(bodyParser.json());
 
 //GET /info
-app.get("/info", (req, res) => {
+app.get("/info", (req, res, next) => {
   let noOfEntries = 0;
   let today = new Date();
-  Phonebook.find({}).then(data => {
-    noOfEntries = data.length;
-    return res.send(
-      `<h3>Phonebook has info for ${noOfEntries} people</h3><h3>${today}</h3>`
-    );
-  });
+  Phonebook.find({})
+    .then(data => {
+      noOfEntries = data.length;
+      return res.send(
+        `<h3>Phonebook has info for ${noOfEntries} people</h3><h3>${today}</h3>`
+      );
+    })
+    .catch(error => next(error));
 });
 
 //GET /api/persons
-app.get("/api/persons", (req, res) => {
-  Phonebook.find({}).then(data => {
-    res.json(data.map(person => person.toJSON()));
-  });
+app.get("/api/persons", (req, res, next) => {
+  Phonebook.find({})
+    .then(data => {
+      res.json(data.map(person => person.toJSON()));
+    })
+    .catch(error => next(error));
 });
 
 //GET /api/persons/:id
@@ -47,24 +49,29 @@ app.get("/api/persons/:id", (req, res, next) => {
 });
 
 //POST /api/persons
-app.post("/api/persons", (req, res) => {
+app.post("/api/persons", (req, res, next) => {
   const body = req.body;
   if (!body.name || !body.number) {
     return res.status(404).json({
       error: "content missing"
     });
   }
-  Phonebook.exists({ name: body.name }).then(data => {
-    if (data) return res.status(404).json({ error: "name must be unique" });
-    //add to db
-    const entry = new Phonebook({
-      name: body.name,
-      number: body.number
-    });
-    entry.save().then(savedEntry => {
-      res.json(savedEntry.toJSON());
-    });
-  });
+  Phonebook.exists({ name: body.name })
+    .then(data => {
+      if (data) return res.status(404).json({ error: "name must be unique" });
+      //add to db
+      const entry = new Phonebook({
+        name: body.name,
+        number: body.number
+      });
+      entry
+        .save()
+        .then(savedEntry => {
+          res.json(savedEntry.toJSON());
+        })
+        .catch(error => next(error));
+    })
+    .catch(error => next(error));
 });
 
 //PUT /api/persons
@@ -103,9 +110,10 @@ app.use(unknownEndPoint);
 const errorHandler = (error, request, response, next) => {
   console.error(error.message);
 
-  if (error.name === "CastError" && error.kind === "ObjectId") {
+  if (error.name === "CastError" && error.kind === "ObjectId")
     return response.status(400).send({ error: "malformatted id" });
-  }
+  else if (error.name === "ValidationError")
+    return response.status(400).json({ error: error.message });
 
   next(error);
 };
